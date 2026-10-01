@@ -26,6 +26,7 @@ FetchContent_MakeAvailable(glm)
 add_executable(
   3dmg
   src/main.cpp
+  src/generation/perlin_noise.cpp
   ${GLAD_DIR}/src/glad.c)
 
 target_compile_options(

@@ -6,6 +6,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "generation/perlin_noise.hpp"
+
 int main() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         return 1;
@@ -61,24 +63,6 @@ int main() {
     std::println("OpenGL vendor: {}",
                  (vendor != nullptr ? vendor : "unknown"));
 
-    // TEST GLM
-    glm::vec3 position{1.0f, 2.0f, 3.0f};
-
-    glm::mat4 model =
-        glm::translate(glm::mat4{1.0f}, position);
-
-    std::println("GLM position: ({}, {}, {})",
-                 position.x,
-                 position.y,
-                 position.z);
-
-    std::println("GLM model[3]: ({}, {}, {}, {})",
-                 model[3].x,
-                 model[3].y,
-                 model[3].z,
-                 model[3].w);
-    // END TEST GLM
-
     bool running = true;
 
     while (running) {
@@ -96,6 +80,19 @@ int main() {
     SDL_GL_DestroyContext(gl_context);
     SDL_DestroyWindow(window);
     SDL_Quit();
+
+    generation::test_generation();
+
+    std::array<std::array<float, 2>, 3> arr = {{
+        {1.1f, 1.0f},
+        {1.2f, 1.0f},
+        {1.3f, 1.0f}
+    }};
+
+    for (const auto& a : arr) {
+        std::println("for ({}, {}) pn equals: {}", a[0], a[1],
+                     generation::octave_perlin2D(a[0], a[1], 1, 1.0f));
+    }
 
     return 0;
 }
