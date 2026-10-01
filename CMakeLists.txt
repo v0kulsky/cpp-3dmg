@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENTIONS OFF)
 
+set(GLAD_DIR ${CMAKE_CURRENT_LIST_DIR}/third_party/glad)
+
 find_package(SDL3 CONFIG REQUIRED)
 
 include(FetchContent)
@@ -16,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
     glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG 1.0.1
+    GIT_TAG 1.0.3
 )
 
 FetchContent_MakeAvailable(glm)
@@ -24,7 +26,7 @@ FetchContent_MakeAvailable(glm)
 add_executable(
   3dmg
   src/main.cpp
-  third_party/glad/src/glad.c)
+  ${GLAD_DIR}/src/glad.c)
 
 target_compile_options(
   3dmg PRIVATE
@@ -41,4 +43,4 @@ target_link_libraries(
 target_include_directories(
   3dmg PRIVATE
   include
-  third_party/glad/include)
+  ${GLAD_DIR}/include)
