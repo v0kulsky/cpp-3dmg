@@ -81,17 +81,17 @@ int main() {
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    generation::test_generation();
+    generation::PerlinNoiseGenerator pn_gen;
 
     std::array<std::array<float, 2>, 3> arr = {{
-        {1.1f, 1.0f},
-        {1.2f, 1.0f},
-        {1.3f, 1.0f}
+        {0.1f, 1.0f},
+        {0.15f, 1.0f},
+        {0.2f, 1.0f}
     }};
 
     for (const auto& a : arr) {
         std::println("for ({}, {}) pn equals: {}", a[0], a[1],
-                     generation::octave_perlin2D(a[0], a[1], 1, 1.0f));
+                     pn_gen.octave_perlin2D(a[0], a[1], 1, 1.0f));
     }
 
     return 0;
