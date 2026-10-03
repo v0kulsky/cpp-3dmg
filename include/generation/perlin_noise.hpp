@@ -3,6 +3,7 @@
 #include <random>
 #include <cstdint>
 #include <array>
+#include <filesystem>
 
 namespace generation {
 
@@ -22,6 +23,11 @@ public:
 
     void set_repeat(std::uint32_t repeat);
     std::uint32_t get_repeat() const;
+
+    bool save_to_pgm(const std::filesystem::path& path,
+                     std::uint32_t width, std::uint32_t height,
+                     float scale = 0.02f, int octaves = 1,
+                     float persistence = 1.0f) const;
 
 private:
     static constexpr std::uint32_t k_perm_array_size {512};

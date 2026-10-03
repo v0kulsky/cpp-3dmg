@@ -1,6 +1,7 @@
 #include <print>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
 
 #include "generation/perlin_noise.hpp"
 
@@ -68,8 +69,8 @@ float PerlinNoiseGenerator::perlin2D(float x, float y) const {
 
     // get gradient vectors for all vertices of the square
     const int aa = m_perm_array[m_perm_array[xi] + yi];
-    const int ab = m_perm_array[m_perm_array[xi] + inc(yi)];
-    const int ba = m_perm_array[m_perm_array[inc(xi)] + yi];
+    const int ab = m_perm_array[m_perm_array[inc(xi)] + yi];
+    const int ba = m_perm_array[m_perm_array[xi] + inc(yi)];
     const int bb = m_perm_array[m_perm_array[inc(xi)] + inc(yi)];
 
     // calculate dot product for each vertex of the square
@@ -86,8 +87,7 @@ float PerlinNoiseGenerator::perlin2D(float x, float y) const {
 }
 
 float PerlinNoiseGenerator::octave_perlin2D(float x, float y, int octaves,
-                                            float persistence) const
-{
+                                            float persistence) const {
     float total {0.0};
     float frequency {1.0};
     float amplitude {1.0};
@@ -102,7 +102,7 @@ float PerlinNoiseGenerator::octave_perlin2D(float x, float y, int octaves,
         frequency *= 2;
     }
 
-    return total / max_value;
+    return max_value != 0.0f ? total / max_value : 0.0f;
 }
 
 void PerlinNoiseGenerator::set_repeat(std::uint32_t repeat) {
@@ -112,6 +112,46 @@ void PerlinNoiseGenerator::set_repeat(std::uint32_t repeat) {
 std::uint32_t PerlinNoiseGenerator::get_repeat() const {
     return m_repeat;
 }
+
+bool PerlinNoiseGenerator::save_to_pgm(const std::filesystem::path& path,
+                                       std::uint32_t width,
+                                       std::uint32_t height,
+                                       float scale, int octaves,
+                                       float persistence) const {
+
+    const float k_max_color = 255.0f;
+
+    std::ofstream file(path, std::ios::binary);
+
+    if (!file) {
+        std::println(stderr, "Error: Couldn't open the file: {}!",
+                     path.string());
+
+        return false;
+    }
+
+    file << "P5\n";
+    file << width << ' ' << height << '\n';
+    file << "255\n";
+
+    for (std::uint32_t py {0}; py < height; ++py) {
+        for (std::uint32_t px {0}; px < width; ++px) {
+            float x = px * scale;
+            float y = py * scale;
+
+            float pn_normalized =
+                (octave_perlin2D(x, y, octaves, persistence) + 1) * 0.5f;
+
+            std::uint8_t pixel =
+                static_cast<uint8_t>(pn_normalized * k_max_color);
+
+            file.write(reinterpret_cast<const char*>(&pixel), sizeof(pixel));
+        }
+    }
+
+    return true;
+}
+
 
 void PerlinNoiseGenerator::prepare_perm_array() {
     if (m_first_init) {
