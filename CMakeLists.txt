@@ -27,6 +27,8 @@ add_executable(
   3dmg
   src/main.cpp
   src/generation/perlin_noise.cpp
+  src/opengl/shader.cpp
+  src/opengl/shader_program.cpp
   ${GLAD_DIR}/src/glad.c)
 
 target_compile_options(
