@@ -8,6 +8,11 @@
 
 #include "generation/perlin_noise.hpp"
 #include "opengl/shader_program.hpp"
+#include "opengl/vertex_array.hpp"
+
+struct VertexData {
+    float x, y, z;
+};
 
 int main() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -108,45 +113,38 @@ void main()
         return -1;
     }
 
-    std::array<float, 12> vertices {
-         0.5f,  0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-        -0.5f, -0.5f, 0.0f,
-        -0.5f,  0.5f, 0.0f
-    };
+    opengl::Buffer<VertexData> vbo;
+    opengl::Buffer<unsigned int> ebo;
 
-    std::array<unsigned int, 6> indices {
-        0, 1, 3,
-        1, 2, 3
-    };
+    {
 
-    unsigned int vbo, vao, ebo;
-    glGenBuffers(1, &vbo);
-    glGenBuffers(1, &ebo);
-    glGenVertexArrays(1, &vao);
+        std::array<VertexData, 4> vertices {
+            VertexData{0.5f,  0.5f, 0.0f},
+            VertexData{ 0.5f, -0.5f, 0.0f},
+            VertexData{-0.5f, -0.5f, 0.0f},
+            VertexData{-0.5f,  0.5f, 0.0f}
+        };
 
-    // VBO - get data ready in buffer
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(),
-                 GL_STATIC_DRAW);
+        std::array<unsigned int, 6> indices {
+            0, 1, 3,
+            1, 2, 3
+        };
 
-    // bind first so that vbo will be associated with this vao
-    glBindVertexArray(vao);
+        vbo = opengl::Buffer{
+            opengl::BufferType::Vertex,
+            std::span<VertexData>(vertices)
+        };
 
-    // VBO - bind to vao via attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
-                          (void*)0);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+        ebo = opengl::Buffer{
+            opengl::BufferType::Element,
+            std::span<unsigned int>(indices)
+        };
 
-    // EBO (doesn't need to be in VAO)
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int),
-                 indices.data(), GL_STATIC_DRAW);
+    }
 
-    // close VAO
-    glBindVertexArray(0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    opengl::VertexArray vao {std::move(vbo), std::move(ebo)};
+
+    vao.add_attribute(3, GL_FLOAT, opengl::NormalizationType::Normalized, 0);
 
     // OPENGL end
 
@@ -171,17 +169,14 @@ void main()
         glClear(GL_COLOR_BUFFER_BIT);
 
         shader_program->use();
-        glBindVertexArray(vao);
+        vao.bind();
+
         glPolygonMode(GL_FRONT_AND_BACK,
                       wireframe ? GL_LINE : GL_FILL);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         SDL_GL_SwapWindow(window);
     }
-
-    glDeleteVertexArrays(1, &vao);
-    glDeleteBuffers(1, &vbo);
-    glDeleteBuffers(1, &ebo);
 
     SDL_GL_DestroyContext(gl_context);
     SDL_DestroyWindow(window);
