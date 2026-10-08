@@ -70,27 +70,15 @@ int main() {
                  (vendor != nullptr ? vendor : "unknown"));
 
     // OPENGL Triangle
-    std::string v_shader_src {R"(
-#version 450 core
-layout (location = 0) in vec3 aPos;
+    const std::filesystem::path vertex_shad_location =
+        "./shaders/vertex.shad";
 
-void main() {
-  gl_Position = vec4(aPos.xyz, 1.0);
-}
-)"};
-
-    std::string f_shader_src {R"(
-#version 450 core
-out vec4 FragColor;
-
-void main()
-{
-  FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
-}
-)"};
+    const std::filesystem::path fragment_shad_location =
+        "./shaders/fragment.shad";
 
     auto vertex_shad =
-        opengl::Shader::compile(opengl::ShaderType::Vertex, v_shader_src);
+        opengl::Shader::compile_file(opengl::ShaderType::Vertex,
+                                     vertex_shad_location);
 
     if (!vertex_shad) {
         std::println("Vertex shader error: {}.", vertex_shad.error());
@@ -98,7 +86,8 @@ void main()
     }
 
     auto fragment_shad =
-        opengl::Shader::compile(opengl::ShaderType::Fragment, f_shader_src);
+        opengl::Shader::compile_file(opengl::ShaderType::Fragment,
+                                     fragment_shad_location);
 
     if (!fragment_shad) {
         std::println("Fragment shader error: {}.", fragment_shad.error());

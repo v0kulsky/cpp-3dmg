@@ -5,6 +5,7 @@
 #include <string>
 #include <utility>
 #include <string_view>
+#include <filesystem>
 
 namespace opengl {
 
@@ -27,6 +28,9 @@ public:
 
     static std::expected<Shader, std::string>
     compile(ShaderType type, std::string_view source);
+
+    static std::expected<Shader, std::string>
+    compile_file(ShaderType type, const std::filesystem::path& filepath);
 
     std::uint32_t get_id() const;
 

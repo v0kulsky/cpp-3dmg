@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 
 #include "opengl/shader.hpp"
+#include "utility.hpp"
 
 namespace opengl {
 
@@ -74,6 +75,19 @@ Shader::compile(ShaderType type, std::string_view source) {
     }
 
     return Shader{id};
+}
+
+std::expected<Shader, std::string>
+Shader::compile_file(ShaderType type,
+                     const std::filesystem::path& filepath) {
+
+    auto source = utility::load_file_content(filepath);
+
+    if (!source) {
+        return std::unexpected(source.error());
+    }
+
+    return compile(type, *source);
 }
 
 std::uint32_t
