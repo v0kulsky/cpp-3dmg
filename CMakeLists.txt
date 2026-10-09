@@ -32,6 +32,11 @@ add_executable(
   src/utility.cpp
   ${GLAD_DIR}/src/glad.c)
 
+set_source_files_properties(
+    ${GLAD_DIR}/src/glad.c
+    PROPERTIES COMPILE_OPTIONS "-Wno-pedantic"
+)
+
 target_compile_options(
   3dmg PRIVATE
   -Wall

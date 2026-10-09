@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <expected>
 #include <string>
+
+#include <glm/glm.hpp>
+
 #include "opengl/shader.hpp"
 
 namespace opengl {
@@ -22,6 +25,11 @@ public:
 
     void use() const;
 
+    void set_float(const std::string& name, float value) const;
+    void set_vec3(const std::string& name, const glm::vec3& vec) const;
+    void set_mat3(const std::string& name, const glm::mat3& mat) const;
+    void set_mat4(const std::string& name, const glm::mat4& mat) const;
+
     std::uint32_t get_id() const;
 
 private:
@@ -29,6 +37,7 @@ private:
 
     ShaderProgram(std::uint32_t id);
     void destroy();
+    int get_uniform_location(const std::string& name) const;
 };
 
 }
