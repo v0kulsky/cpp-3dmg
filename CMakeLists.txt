@@ -30,6 +30,8 @@ add_executable(
   src/opengl/shader.cpp
   src/opengl/shader_program.cpp
   src/utility.cpp
+  src/camera.cpp
+  src/terrain.cpp
   ${GLAD_DIR}/src/glad.c)
 
 set_source_files_properties(

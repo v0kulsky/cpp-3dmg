@@ -1,4 +1,5 @@
 #include <print>
+#include <cstddef>
 
 #include <SDL3/SDL.h>
 #include <glad/glad.h>
@@ -9,10 +10,8 @@
 #include "generation/perlin_noise.hpp"
 #include "opengl/shader_program.hpp"
 #include "opengl/vertex_array.hpp"
-
-struct VertexData {
-    float x, y, z;
-};
+#include "camera.hpp"
+#include "terrain.hpp"
 
 int main() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -30,6 +29,11 @@ int main() {
     SDL_Window* window = SDL_CreateWindow("3dmq - OpenGL 4.5", 1280, 720,
                                           SDL_WINDOW_OPENGL);
     if (window == nullptr) {
+        SDL_Quit();
+        return 1;
+    }
+
+    if (!SDL_SetWindowRelativeMouseMode(window, true)) {
         SDL_Quit();
         return 1;
     }
@@ -69,12 +73,13 @@ int main() {
     std::println("OpenGL vendor: {}",
                  (vendor != nullptr ? vendor : "unknown"));
 
-    // OPENGL Triangle
+    glEnable(GL_DEPTH_TEST);
+
     const std::filesystem::path vertex_shad_location =
-        "./shaders/vertex.shad";
+        "./shaders/vertex.glsl";
 
     const std::filesystem::path fragment_shad_location =
-        "./shaders/fragment.shad";
+        "./shaders/fragment.glsl";
 
     auto vertex_shad =
         opengl::Shader::compile_file(opengl::ShaderType::Vertex,
@@ -102,43 +107,36 @@ int main() {
         return -1;
     }
 
-    opengl::Buffer<VertexData> vbo;
-    opengl::Buffer<unsigned int> ebo;
+    Terrain terrain =
+        Terrain::generate(Transform{
+            .position{0.0f, 0.0f, 0.0f},
+            .rotation{0.0f, 0.0f, 0.0f},
+            .scale{0.0f, 0.0f, 0.0f}
+        });
 
-    {
-
-        std::array<VertexData, 4> vertices {
-            VertexData{0.5f,  0.5f, 0.0f},
-            VertexData{ 0.5f, -0.5f, 0.0f},
-            VertexData{-0.5f, -0.5f, 0.0f},
-            VertexData{-0.5f,  0.5f, 0.0f}
-        };
-
-        std::array<unsigned int, 6> indices {
-            0, 1, 3,
-            1, 2, 3
-        };
-
-        vbo = opengl::Buffer{
-            opengl::BufferType::Vertex,
-            std::span<VertexData>(vertices)
-        };
-
-        ebo = opengl::Buffer{
-            opengl::BufferType::Element,
-            std::span<unsigned int>(indices)
-        };
-
-    }
-
-    opengl::VertexArray vao {std::move(vbo), std::move(ebo)};
-
-    vao.add_attribute(3, GL_FLOAT, opengl::NormalizationType::Normalized, 0);
-
-    // OPENGL end
+    Camera cam{glm::vec3(0.0f, 0.0f, 8.0f)};
+    glm::vec3 cam_move_dir;
 
     bool running {true};
     bool wireframe {false};
+
+    float time_val {0.0f};
+    float previous_frame_time {0.0f};
+    float delta_time {0.0f};
+
+    float ambient_strength = 0.1f;
+    glm::vec3 ambient_color(1.0f, 1.0f, 1.0f);
+    glm::vec3 ambient = ambient_strength * ambient_color;
+
+    glm::vec3 cube_pos(0.0f, 0.0f, 0.0f);
+    glm::vec3 rot_axis(0.0f, 1.0f, 0.0f);
+        glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f),
+                                            1280.0f / 720.0f,
+                                            0.1f, 100.0f);
+    model = glm::translate(model, cube_pos);
+
+    glm::mat3 normal_mat = glm::transpose(glm::inverse(glm::mat3(model)));
 
     while (running) {
         SDL_Event event;
@@ -152,17 +150,61 @@ int main() {
                     wireframe = !wireframe;
                 }
             }
+            else if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                cam.rotate(event.motion.xrel, event.motion.yrel);
+            }
         }
 
+        const bool* keys = SDL_GetKeyboardState(nullptr);
+        cam_move_dir = {0.0f, 0.0f, 0.0f};
+
+        if (keys[SDL_SCANCODE_W]) {
+            cam_move_dir += cam.get_front();
+        }
+        if (keys[SDL_SCANCODE_S]) {
+            cam_move_dir -= cam.get_front();
+        }
+        if (keys[SDL_SCANCODE_A]) {
+            cam_move_dir -= cam.get_right();
+        }
+        if (keys[SDL_SCANCODE_D]) {
+            cam_move_dir += cam.get_right();
+        }
+        if (keys[SDL_SCANCODE_SPACE]) {
+            cam_move_dir += cam.get_up();
+        }
+        if (keys[SDL_SCANCODE_LCTRL]) {
+            cam_move_dir -= cam.get_up();
+        }
+
+        time_val = SDL_GetTicks() / 1000.0f;
+        delta_time = time_val - previous_frame_time;
+        previous_frame_time = time_val;
+
+        cam.move(delta_time, cam_move_dir);
+
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shader_program->use();
-        vao.bind();
+        shader_program->set_mat4("model", model);
+        shader_program->set_mat4("view", cam.get_view_mat());
+        shader_program->set_mat4("projection", projection);
+        shader_program->set_mat3("normal_mat", normal_mat);
+
+        shader_program->set_vec3("ambient", ambient);
+        shader_program->set_vec3("light_pos", glm::vec3(2.0f, 10.0f, 4.0f));
+        shader_program->set_vec3("light_col", glm::vec3(1.0f, 1.0f, 1.0f));
+
+        shader_program->set_vec3("object_col", glm::vec3(0.5f, 0.8f, 0.3f));
+
+        terrain.bind_mesh();
 
         glPolygonMode(GL_FRONT_AND_BACK,
                       wireframe ? GL_LINE : GL_FILL);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, 128*128*6, GL_UNSIGNED_INT, 0);
+
+        terrain.unbind_mesh();
 
         SDL_GL_SwapWindow(window);
     }
