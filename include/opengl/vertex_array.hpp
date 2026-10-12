@@ -58,10 +58,10 @@ VertexArray<vbo_t, ebo_t>::~VertexArray() {
 
 template<typename vbo_t, typename ebo_t>
 VertexArray<vbo_t, ebo_t>::VertexArray(VertexArray<vbo_t, ebo_t>&& other)
-    : m_id(std::exchange(other.m_id, 0)),
-      m_attrib_counter(std::exchange(other.m_attrib_counter, 0)),
-      m_vbo(std::move(other.m_vbo)),
-      m_ebo(std::move(other.m_ebo))
+    : m_vbo(std::move(other.m_vbo)),
+      m_ebo(std::move(other.m_ebo)),
+      m_id(std::exchange(other.m_id, 0)),
+      m_attrib_counter(std::exchange(other.m_attrib_counter, 0))
 {}
 
 template<typename vbo_t, typename ebo_t>
