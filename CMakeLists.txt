@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENTIONS OFF)
 
 set(GLAD_DIR ${CMAKE_CURRENT_LIST_DIR}/third_party/glad)
+set(IMGUI_DIR ${CMAKE_CURRENT_LIST_DIR}/third_party/imgui)
 
 find_package(SDL3 CONFIG REQUIRED)
 
@@ -32,7 +33,14 @@ add_executable(
   src/utility.cpp
   src/camera.cpp
   src/terrain.cpp
-  ${GLAD_DIR}/src/glad.c)
+  ${GLAD_DIR}/src/glad.c
+  ${IMGUI_DIR}/imgui.cpp
+  ${IMGUI_DIR}/imgui_demo.cpp
+  ${IMGUI_DIR}/imgui_draw.cpp
+  ${IMGUI_DIR}/imgui_tables.cpp
+  ${IMGUI_DIR}/imgui_widgets.cpp
+  ${IMGUI_DIR}/imgui_impl_sdl3.cpp
+  ${IMGUI_DIR}/imgui_impl_opengl3.cpp)
 
 set_source_files_properties(
     ${GLAD_DIR}/src/glad.c
@@ -54,4 +62,5 @@ target_link_libraries(
 target_include_directories(
   3dmg PRIVATE
   include
-  ${GLAD_DIR}/include)
+  ${GLAD_DIR}/include
+  ${IMGUI_DIR})
