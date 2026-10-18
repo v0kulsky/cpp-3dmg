@@ -26,7 +26,7 @@ int main() {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-    SDL_Window* window = SDL_CreateWindow("3dmq - OpenGL 4.5", 1280, 720,
+    SDL_Window* window = SDL_CreateWindow("3dmg - OpenGL 4.5", 1280, 720,
                                           SDL_WINDOW_OPENGL);
     if (window == nullptr) {
         SDL_Quit();
@@ -74,6 +74,9 @@ int main() {
                  (vendor != nullptr ? vendor : "unknown"));
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     const std::filesystem::path vertex_shad_location =
         "./shaders/vertex.glsl";
@@ -107,14 +110,31 @@ int main() {
         return -1;
     }
 
-    Terrain terrain =
-        Terrain::generate(Transform{
+    Terrain terrain = Terrain::generate(
+        1998,
+
+        Transform{
             .position{0.0f, 0.0f, 0.0f},
             .rotation{0.0f, 0.0f, 0.0f},
             .scale{0.0f, 0.0f, 0.0f}
-        });
+        },
 
-    Camera cam{glm::vec3(0.0f, 0.0f, 8.0f)};
+        TerrainConfig{
+            .resolution{512},
+            .terrain_size{100.0f},
+            .height_scale{30.0f},
+        },
+
+        generation::PerlinConfig{
+            .scale{0.03f},
+            .persistence{0.3f},
+            .octaves{9}
+        }
+    );
+
+    float cam_speed {3.0f};
+    Camera cam{glm::vec3(95.0f, 90.0f, -50.0f), cam_speed};
+    cam.set_look_direction(glm::vec3{-0.6110979, -0.7205517, 0.3276654});
     glm::vec3 cam_move_dir;
 
     bool running {true};
@@ -127,20 +147,21 @@ int main() {
     float ambient_strength = 0.1f;
     glm::vec3 ambient_color(1.0f, 1.0f, 1.0f);
     glm::vec3 ambient = ambient_strength * ambient_color;
+    glm::vec3 light_dir = glm::normalize(glm::vec3(-5.0f, -8.0f, -2.0f));
 
     glm::vec3 cube_pos(0.0f, 0.0f, 0.0f);
     glm::vec3 rot_axis(0.0f, 1.0f, 0.0f);
-        glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 projection = glm::perspective(glm::radians(45.0f),
                                             1280.0f / 720.0f,
-                                            0.1f, 100.0f);
+                                            0.1f, 200.0f);
     model = glm::translate(model, cube_pos);
 
     glm::mat3 normal_mat = glm::transpose(glm::inverse(glm::mat3(model)));
 
-    while (running) {
-        SDL_Event event;
+    SDL_Event event;
 
+    while (running) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
@@ -149,9 +170,28 @@ int main() {
                 if (event.key.key == SDLK_Z) {
                     wireframe = !wireframe;
                 }
+                else if (event.key.key == SDLK_C) {
+                    auto cpos = cam.get_position();
+                    auto cfront = cam.get_front();
+                    std::println("Cam pos: {}, {}, {}",
+                                 cpos.x, cpos.y, cpos.z);
+                    std::println("Cam speed: {}", cam_speed);
+                    std::println("Cam front: {}, {}, {}",
+                                 cfront.x, cfront.y, cfront.z);
+                }
             }
             else if (event.type == SDL_EVENT_MOUSE_MOTION) {
                 cam.rotate(event.motion.xrel, event.motion.yrel);
+            }
+            else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+                if (event.wheel.y > 0) {
+                    cam_speed += 0.5f;
+                    cam.set_move_speed(cam_speed);
+                }
+                else if (event.wheel.y < 0) {
+                    cam_speed -= 0.5f;
+                    cam.set_move_speed(cam_speed);
+                }
             }
         }
 
@@ -193,16 +233,15 @@ int main() {
         shader_program->set_mat3("normal_mat", normal_mat);
 
         shader_program->set_vec3("ambient", ambient);
-        shader_program->set_vec3("light_pos", glm::vec3(2.0f, 10.0f, 4.0f));
+        shader_program->set_vec3("light_dir", light_dir);
         shader_program->set_vec3("light_col", glm::vec3(1.0f, 1.0f, 1.0f));
-
         shader_program->set_vec3("object_col", glm::vec3(0.5f, 0.8f, 0.3f));
 
         terrain.bind_mesh();
 
         glPolygonMode(GL_FRONT_AND_BACK,
                       wireframe ? GL_LINE : GL_FILL);
-        glDrawElements(GL_TRIANGLES, 128*128*6, GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, terrain.indices_count(), GL_UNSIGNED_INT, 0);
 
         terrain.unbind_mesh();
 

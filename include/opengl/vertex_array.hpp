@@ -32,6 +32,8 @@ public:
     void add_attribute(std::uint32_t size, std::int32_t type,
                        NormalizationType norm_type, std::size_t offset);
 
+    unsigned int indices_count() const;
+
 private:
     Buffer<vbo_t> m_vbo;
     Buffer<ebo_t> m_ebo;
@@ -122,6 +124,12 @@ VertexArray<vbo_t, ebo_t>::add_attribute(std::uint32_t size, std::int32_t type,
     glBindVertexArray(0);
 
     ++m_attrib_counter;
+}
+
+template<typename vbo_t, typename ebo_t>
+unsigned int
+VertexArray<vbo_t, ebo_t>::indices_count() const {
+    return m_ebo.count();
 }
 
 template<typename vbo_t, typename ebo_t>

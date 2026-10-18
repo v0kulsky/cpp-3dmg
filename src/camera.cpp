@@ -41,6 +41,10 @@ const glm::vec3& Camera::get_up() const {
     return m_up;
 }
 
+const glm::vec3& Camera::get_position() const {
+    return m_position;
+}
+
 void Camera::set_move_speed(float new_speed) {
     if (new_speed > 0.0f) {
         m_move_speed = new_speed;
@@ -51,6 +55,17 @@ void Camera::set_mouse_sensitivity(float new_sensitivity) {
     if (new_sensitivity > 0.0f) {
         m_mouse_sensitivity = new_sensitivity;
     }
+}
+
+void Camera::set_look_direction(glm::vec3 direction) {
+    direction = glm::normalize(direction);
+
+    m_yaw = glm::degrees(glm::atan(direction.z, direction.x));
+    m_pitch = glm::degrees(glm::asin(direction.y));
+
+    m_pitch = glm::clamp(m_pitch, -89.0f, 89.0f);
+
+    update_vectors();
 }
 
 void Camera::update_vectors() {

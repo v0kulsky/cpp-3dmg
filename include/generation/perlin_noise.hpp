@@ -7,6 +7,12 @@
 
 namespace generation {
 
+struct PerlinConfig {
+    float scale;
+    float persistence;
+    int octaves;
+};
+
 class PerlinNoiseGenerator {
 public:
     PerlinNoiseGenerator();

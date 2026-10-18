@@ -29,11 +29,13 @@ public:
     void unbind() const;
 
     std::size_t get_element_size() const;
+    std::uint32_t count() const;
 
 private:
     std::uint32_t m_id {0};
     std::int32_t m_type;
     std::size_t m_element_size {0};
+    std::uint32_t m_count {0};
 
     void destroy();
 };
@@ -53,6 +55,7 @@ Buffer<T>::Buffer(BufferType type, std::span<T> data) {
     glGenBuffers(1, &m_id);
     m_type = static_cast<std::uint32_t>(gl_type);
     m_element_size = sizeof(T);
+    m_count = data.size();
 
     bind();
     glBufferData(m_type, data.size() * m_element_size, data.data(),
@@ -69,7 +72,8 @@ template<typename T>
 Buffer<T>::Buffer(Buffer<T>&& other)
     : m_id(std::exchange(other.m_id, 0)),
       m_type(std::exchange(other.m_type, 0)),
-      m_element_size(std::exchange(other.m_element_size, 0))
+      m_element_size(std::exchange(other.m_element_size, 0)),
+      m_count(std::exchange(other.m_count, 0))
 {}
 
 template<typename T>
@@ -81,6 +85,7 @@ Buffer<T>::operator=(Buffer<T>&& other) {
         m_id = std::exchange(other.m_id, 0);
         m_type = std::exchange(other.m_type, 0);
         m_element_size = std::exchange(other.m_element_size, 0);
+        m_count = std::exchange(other.m_count, 0);
     }
 
     return *this;
@@ -102,6 +107,12 @@ template<typename T>
 std::size_t
 Buffer<T>::get_element_size() const {
     return m_element_size;
+}
+
+template<typename T>
+std::uint32_t
+Buffer<T>::count() const {
+    return m_count;
 }
 
 template<typename T>

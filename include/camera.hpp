@@ -15,8 +15,12 @@ public:
     const glm::vec3& get_right() const;
     const glm::vec3& get_up() const;
 
+    const glm::vec3& get_position() const;
+
     void set_move_speed(float new_speed);
     void set_mouse_sensitivity(float new_sensitivity);
+
+    void set_look_direction(glm::vec3 direction);
 
 private:
     glm::vec3 m_position;
