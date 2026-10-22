@@ -35,7 +35,8 @@ UI::shutdown() {
 [[nodiscard]]
 UICtx
 UI::draw_window(UICtx context) const {
-    ImGui::Begin("Terrain generation", nullptr, ImGuiWindowFlags_NoResize);
+    ImGui::Begin("Terrain generation", nullptr,
+                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::SeparatorText("Perlin noise configuration");
     ImGui::SliderFloat("Noise scale", &context.perlin_scale, 0.001f, 0.075f);
@@ -43,12 +44,12 @@ UI::draw_window(UICtx context) const {
     ImGui::SliderInt("Octaves", &context.perlin_octaves, 1, 10);
 
     ImGui::SeparatorText("Terrain configuration");
-    ImGui::SliderFloat("Max height", &context.height_scale, 0.0f, 50.0f);
+    ImGui::SliderFloat("Max height", &context.terrain_max_height, 0.0f, 50.0f);
 
     ImGui::InputScalar("Seed", ImGuiDataType_U32, &context.seed);
     ImGui::SameLine();
     if (ImGui::Button("Random")) {
-        context.seed++;
+        context.generate_seed = true;
     }
 
     ImGui::Spacing();
@@ -56,13 +57,17 @@ UI::draw_window(UICtx context) const {
     ImGui::Spacing();
 
     if (ImGui::Button("Generate!")) {
-        context.generate = true;
+        context.generate_terrain = true;
     }
     ImGui::End();
 
-
     ImGui::Render();
     return context;
+}
+
+bool
+UI::want_capture_mouse() const {
+    return m_io->WantCaptureMouse;
 }
 
 void

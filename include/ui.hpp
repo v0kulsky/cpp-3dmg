@@ -8,12 +8,13 @@
 #include "imgui_impl_opengl3.h"
 
 struct UICtx {
-    float height_scale;
+    float terrain_max_height;
     std::uint32_t seed;
     float perlin_scale;
     float perlin_persistance;
     int perlin_octaves;
-    bool generate;
+    bool generate_terrain;
+    bool generate_seed;
 };
 
 class UI {
@@ -38,6 +39,9 @@ public:
     [[nodiscard]]
     UICtx
     draw_window(UICtx context) const;
+
+    bool
+    want_capture_mouse() const;
 
     void
     process_events(const SDL_Event* event) const;

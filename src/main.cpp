@@ -14,6 +14,11 @@
 #include "terrain.hpp"
 #include "ui.hpp"
 
+std::uint32_t random_seed() {
+    static std::mt19937 rng{std::random_device{}()};
+    return rng();
+}
+
 int main() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         return 1;
@@ -111,14 +116,15 @@ int main() {
     }
 
     UICtx app_context {
-        .height_scale {30.0f},
+        .terrain_max_height {30.0f},
 
         .seed {1998},
         .perlin_scale {0.03f},
         .perlin_persistance {0.3f},
         .perlin_octaves {9},
 
-        .generate {false}
+        .generate_terrain {false},
+        .generate_seed {false}
     };
 
     Terrain terrain = Terrain::generate(
@@ -133,7 +139,7 @@ int main() {
         TerrainConfig{
             .resolution {512},
             .terrain_size {100.0f},
-            .height_scale {app_context.height_scale},
+            .height_scale {app_context.terrain_max_height}
         },
 
         generation::PerlinConfig{
@@ -148,6 +154,10 @@ int main() {
 
     bool running {true};
 
+    float board_rotation = 0.0f;
+    bool is_dragging = false;
+    constexpr float rotation_sensitivity = 0.3f;
+
     float ambient_strength = 0.1f;
     glm::vec3 ambient_color(1.0f, 1.0f, 1.0f);
     glm::vec3 ambient = ambient_strength * ambient_color;
@@ -155,13 +165,12 @@ int main() {
 
     glm::vec3 cube_pos(0.0f, 0.0f, 0.0f);
     glm::vec3 rot_axis(0.0f, 1.0f, 0.0f);
-    glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 projection = glm::perspective(glm::radians(45.0f),
                                             1280.0f / 720.0f,
                                             0.1f, 200.0f);
-    model = glm::translate(model, cube_pos);
-
-    glm::mat3 normal_mat = glm::transpose(glm::inverse(glm::mat3(model)));
+    glm::mat4 model;
+    glm::mat4 rotation;
+    glm::mat3 normal_mat;
 
     SDL_Event event;
 
@@ -171,12 +180,33 @@ int main() {
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
             }
+            else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    is_dragging = !ui.want_capture_mouse();
+                }
+            }
+            else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    is_dragging = false;
+                }
+            }
+            else if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                if (is_dragging) {
+                    board_rotation += event.motion.xrel * rotation_sensitivity;
+                    board_rotation = std::clamp(board_rotation, -179.0f, 179.0f);
+                }
+            }
         }
 
         ui.new_frame();
         app_context = ui.draw_window(app_context);
 
-        if (app_context.generate) {
+        if (app_context.generate_seed) {
+            app_context.seed = random_seed();
+            app_context.generate_seed = false;
+        }
+
+        if (app_context.generate_terrain) {
             terrain = Terrain::generate(
                 app_context.seed,
 
@@ -189,7 +219,7 @@ int main() {
                 TerrainConfig{
                     .resolution {512},
                     .terrain_size {100.0f},
-                    .height_scale {app_context.height_scale},
+                    .height_scale {app_context.terrain_max_height},
                 },
 
                 generation::PerlinConfig{
@@ -199,8 +229,13 @@ int main() {
                 }
             );
 
-            app_context.generate = false;
+            app_context.generate_terrain = false;
         }
+
+        rotation = glm::rotate(glm::mat4{1.0f}, glm::radians(board_rotation),
+                               glm::vec3{0.0f, 1.0f, 0.0f});
+        model = glm::translate(glm::mat4{1.0f}, cube_pos) * rotation;
+        normal_mat = glm::transpose(glm::inverse(glm::mat3(model)));
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
