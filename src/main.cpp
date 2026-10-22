@@ -12,6 +12,7 @@
 #include "opengl/vertex_array.hpp"
 #include "camera.hpp"
 #include "terrain.hpp"
+#include "ui.hpp"
 
 int main() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -26,14 +27,11 @@ int main() {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
+    float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+
     SDL_Window* window = SDL_CreateWindow("3dmg - OpenGL 4.5", 1280, 720,
                                           SDL_WINDOW_OPENGL);
     if (window == nullptr) {
-        SDL_Quit();
-        return 1;
-    }
-
-    if (!SDL_SetWindowRelativeMouseMode(window, true)) {
         SDL_Quit();
         return 1;
     }
@@ -78,6 +76,8 @@ int main() {
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
 
+    UI& ui = UI::instance(window, gl_context, main_scale);
+
     const std::filesystem::path vertex_shad_location =
         "./shaders/vertex.glsl";
 
@@ -110,39 +110,43 @@ int main() {
         return -1;
     }
 
+    UICtx app_context {
+        .height_scale {30.0f},
+
+        .seed {1998},
+        .perlin_scale {0.03f},
+        .perlin_persistance {0.3f},
+        .perlin_octaves {9},
+
+        .generate {false}
+    };
+
     Terrain terrain = Terrain::generate(
-        1998,
+        app_context.seed,
 
         Transform{
-            .position{0.0f, 0.0f, 0.0f},
-            .rotation{0.0f, 0.0f, 0.0f},
-            .scale{0.0f, 0.0f, 0.0f}
+            .position {0.0f, 0.0f, 0.0f},
+            .rotation {0.0f, 0.0f, 0.0f},
+            .scale {0.0f, 0.0f, 0.0f}
         },
 
         TerrainConfig{
-            .resolution{512},
-            .terrain_size{100.0f},
-            .height_scale{30.0f},
+            .resolution {512},
+            .terrain_size {100.0f},
+            .height_scale {app_context.height_scale},
         },
 
         generation::PerlinConfig{
-            .scale{0.03f},
-            .persistence{0.3f},
-            .octaves{9}
+            .scale {app_context.perlin_scale},
+            .persistence {app_context.perlin_persistance},
+            .octaves {app_context.perlin_octaves}
         }
     );
 
-    float cam_speed {3.0f};
-    Camera cam{glm::vec3(95.0f, 90.0f, -50.0f), cam_speed};
+    Camera cam{glm::vec3(95.0f, 90.0f, -50.0f)};
     cam.set_look_direction(glm::vec3{-0.6110979, -0.7205517, 0.3276654});
-    glm::vec3 cam_move_dir;
 
     bool running {true};
-    bool wireframe {false};
-
-    float time_val {0.0f};
-    float previous_frame_time {0.0f};
-    float delta_time {0.0f};
 
     float ambient_strength = 0.1f;
     glm::vec3 ambient_color(1.0f, 1.0f, 1.0f);
@@ -163,65 +167,40 @@ int main() {
 
     while (running) {
         while (SDL_PollEvent(&event)) {
+            ui.process_events(&event);
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
             }
-            else if (event.type == SDL_EVENT_KEY_DOWN) {
-                if (event.key.key == SDLK_Z) {
-                    wireframe = !wireframe;
-                }
-                else if (event.key.key == SDLK_C) {
-                    auto cpos = cam.get_position();
-                    auto cfront = cam.get_front();
-                    std::println("Cam pos: {}, {}, {}",
-                                 cpos.x, cpos.y, cpos.z);
-                    std::println("Cam speed: {}", cam_speed);
-                    std::println("Cam front: {}, {}, {}",
-                                 cfront.x, cfront.y, cfront.z);
-                }
-            }
-            else if (event.type == SDL_EVENT_MOUSE_MOTION) {
-                cam.rotate(event.motion.xrel, event.motion.yrel);
-            }
-            else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                if (event.wheel.y > 0) {
-                    cam_speed += 0.5f;
-                    cam.set_move_speed(cam_speed);
-                }
-                else if (event.wheel.y < 0) {
-                    cam_speed -= 0.5f;
-                    cam.set_move_speed(cam_speed);
-                }
-            }
         }
 
-        const bool* keys = SDL_GetKeyboardState(nullptr);
-        cam_move_dir = {0.0f, 0.0f, 0.0f};
+        ui.new_frame();
+        app_context = ui.draw_window(app_context);
 
-        if (keys[SDL_SCANCODE_W]) {
-            cam_move_dir += cam.get_front();
-        }
-        if (keys[SDL_SCANCODE_S]) {
-            cam_move_dir -= cam.get_front();
-        }
-        if (keys[SDL_SCANCODE_A]) {
-            cam_move_dir -= cam.get_right();
-        }
-        if (keys[SDL_SCANCODE_D]) {
-            cam_move_dir += cam.get_right();
-        }
-        if (keys[SDL_SCANCODE_SPACE]) {
-            cam_move_dir += cam.get_up();
-        }
-        if (keys[SDL_SCANCODE_LCTRL]) {
-            cam_move_dir -= cam.get_up();
-        }
+        if (app_context.generate) {
+            terrain = Terrain::generate(
+                app_context.seed,
 
-        time_val = SDL_GetTicks() / 1000.0f;
-        delta_time = time_val - previous_frame_time;
-        previous_frame_time = time_val;
+                Transform{
+                    .position {0.0f, 0.0f, 0.0f},
+                    .rotation {0.0f, 0.0f, 0.0f},
+                    .scale {0.0f, 0.0f, 0.0f}
+                },
 
-        cam.move(delta_time, cam_move_dir);
+                TerrainConfig{
+                    .resolution {512},
+                    .terrain_size {100.0f},
+                    .height_scale {app_context.height_scale},
+                },
+
+                generation::PerlinConfig{
+                    .scale {app_context.perlin_scale},
+                    .persistence {app_context.perlin_persistance},
+                    .octaves {app_context.perlin_octaves}
+                }
+            );
+
+            app_context.generate = false;
+        }
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -239,14 +218,16 @@ int main() {
 
         terrain.bind_mesh();
 
-        glPolygonMode(GL_FRONT_AND_BACK,
-                      wireframe ? GL_LINE : GL_FILL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glDrawElements(GL_TRIANGLES, terrain.indices_count(), GL_UNSIGNED_INT, 0);
 
         terrain.unbind_mesh();
 
+        ui.render_drawn_data();
         SDL_GL_SwapWindow(window);
     }
+
+    ui.shutdown();
 
     SDL_GL_DestroyContext(gl_context);
     SDL_DestroyWindow(window);

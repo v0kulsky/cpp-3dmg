@@ -33,6 +33,9 @@ public:
     Terrain(const Terrain&) = delete;
     Terrain& operator=(const Terrain&) = delete;
 
+    Terrain(Terrain&&) noexcept = default;
+    Terrain& operator=(Terrain&&) noexcept = default;
+
     void
     bind_mesh() const;
 

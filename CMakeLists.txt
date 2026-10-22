@@ -33,6 +33,7 @@ add_executable(
   src/utility.cpp
   src/camera.cpp
   src/terrain.cpp
+  src/ui.cpp
   ${GLAD_DIR}/src/glad.c
   ${IMGUI_DIR}/imgui.cpp
   ${IMGUI_DIR}/imgui_demo.cpp
