@@ -41,7 +41,8 @@ add_executable(
   ${IMGUI_DIR}/imgui_tables.cpp
   ${IMGUI_DIR}/imgui_widgets.cpp
   ${IMGUI_DIR}/imgui_impl_sdl3.cpp
-  ${IMGUI_DIR}/imgui_impl_opengl3.cpp)
+  ${IMGUI_DIR}/imgui_impl_opengl3.cpp
+  ${IMGUI_DIR}/imgui_stdlib.cpp)
 
 set_source_files_properties(
     ${GLAD_DIR}/src/glad.c

@@ -116,6 +116,7 @@ int main() {
     }
 
     UICtx app_context {
+        .layers {},
         .terrain_max_height {30.0f},
 
         .seed {1998},
@@ -199,7 +200,7 @@ int main() {
         }
 
         ui.new_frame();
-        app_context = ui.draw_window(app_context);
+        ui.draw_window(app_context);
 
         if (app_context.generate_seed) {
             app_context.seed = random_seed();
@@ -249,7 +250,7 @@ int main() {
         shader_program->set_vec3("ambient", ambient);
         shader_program->set_vec3("light_dir", light_dir);
         shader_program->set_vec3("light_col", glm::vec3(1.0f, 1.0f, 1.0f));
-        shader_program->set_vec3("object_col", glm::vec3(0.5f, 0.8f, 0.3f));
+        // shader_program->set_vec3("object_col", glm::vec3(0.5f, 0.8f, 0.3f));
 
         terrain.bind_mesh();
 

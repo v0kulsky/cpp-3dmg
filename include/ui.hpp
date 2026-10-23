@@ -1,13 +1,25 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <SDL3/SDL.h>
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_opengl3.h"
 
+#include <glm/glm.hpp>
+
+struct Layer {
+    glm::vec3 color;
+    std::string id;
+    std::string name;
+    float high_limit;
+    bool visible;
+};
+
 struct UICtx {
+    std::vector<Layer> layers;
     float terrain_max_height;
     std::uint32_t seed;
     float perlin_scale;
@@ -36,9 +48,8 @@ public:
     void
     shutdown();
 
-    [[nodiscard]]
-    UICtx
-    draw_window(UICtx context) const;
+    void
+    draw_window(UICtx& context);
 
     bool
     want_capture_mouse() const;
@@ -57,6 +68,8 @@ private:
     ImGuiStyle* m_style {nullptr};
     ImGuiIO* m_io {nullptr};
     bool m_initialized {false};
+
+    std::uint32_t m_layer_counter {0};
 
     UI(SDL_Window* window, SDL_GLContext gl_context, float main_scale);
 };
