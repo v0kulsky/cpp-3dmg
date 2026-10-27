@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <expected>
 #include <string>
+#include <span>
 
 #include <glm/glm.hpp>
 
@@ -25,8 +26,11 @@ public:
 
     void use() const;
 
+    void set_int(const std::string& name, int value) const;
     void set_float(const std::string& name, float value) const;
     void set_vec3(const std::string& name, const glm::vec3& vec) const;
+    void set_vec4_array(const std::string& name,
+                        const std::span<const glm::vec4> data) const;
     void set_mat3(const std::string& name, const glm::mat3& mat) const;
     void set_mat4(const std::string& name, const glm::mat4& mat) const;
 

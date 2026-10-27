@@ -3,6 +3,8 @@
 #include "ui.hpp"
 #include "imgui_stdlib.h"
 
+static constexpr std::uint32_t COLORING_LAYERS_LIMIT {32};
+
 UI::~UI() {
     shutdown();
 }
@@ -64,6 +66,10 @@ UI::draw_window(UICtx& context) {
 
         ImGui::InputScalar("Seed", ImGuiDataType_U32, &context.seed);
 
+        ImGui::SliderFloat("Water level", &context.water_height,
+                           -context.terrain_max_height,
+                           context.terrain_max_height);
+
         ImGui::Spacing();
 
         if (ImGui::Button("Generate")) {
@@ -82,11 +88,21 @@ UI::draw_window(UICtx& context) {
         ImGui::SeparatorText("Layer coloring");
 
         if (ImGui::Button("+ Add layer")) {
-            context.layers.emplace_back(glm::vec3{1.0f, 1.0f, 1.0f},
-                                        std::format("##L{}", m_layer_counter),
-                                        std::format("Layer {}", m_layer_counter),
-                                        0.0f, true);
-            ++m_layer_counter;
+            if (context.layers.size() <= COLORING_LAYERS_LIMIT) {
+                context.layers.emplace_back(
+                    glm::vec3{1.0f, 1.0f, 1.0f},
+                    std::format("##L{}", m_layer_counter),
+                    std::format("Layer {}", m_layer_counter),
+                    0.0f, true);
+
+                ++m_layer_counter;
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Apply layers")) {
+            if (context.layers.size() > 0) {
+                context.apply_coloring = true;
+            }
         }
 
         for (auto it = context.layers.begin(); it != context.layers.end();) {
@@ -100,10 +116,7 @@ UI::draw_window(UICtx& context) {
                 continue;
             }
             ImGui::ColorEdit3(std::format("Color{}", layer.id).c_str(),
-                              &layer.color.x, ImGuiColorEditFlags_NoInputs);
-            ImGui::SameLine();
-            ImGui::Checkbox(std::format("Visible{}", layer.id).c_str(),
-                            &layer.visible);
+                              &layer.color.x);//, ImGuiColorEditFlags_NoInputs);
             ImGui::SliderFloat(std::format("Upper limit{}", layer.id).c_str(),
                                &layer.high_limit,
                                -context.terrain_max_height,

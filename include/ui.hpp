@@ -25,8 +25,10 @@ struct UICtx {
     float perlin_scale;
     float perlin_persistance;
     int perlin_octaves;
+    float water_height;
     bool generate_terrain;
     bool generate_seed;
+    bool apply_coloring;
 };
 
 class UI {

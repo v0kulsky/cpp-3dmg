@@ -59,6 +59,13 @@ ShaderProgram::use() const {
 }
 
 void
+ShaderProgram::set_int(const std::string& name, int value) const {
+    const int loc = get_uniform_location(name);
+
+    glUniform1i(loc, value);
+}
+
+void
 ShaderProgram::set_float(const std::string& name, float value) const {
     const int loc = get_uniform_location(name);
 
@@ -70,6 +77,14 @@ ShaderProgram::set_vec3(const std::string& name, const glm::vec3& vec) const {
     const int loc = get_uniform_location(name);
 
     glUniform3fv(loc, 1, glm::value_ptr(vec));
+}
+
+void
+ShaderProgram::set_vec4_array(const std::string& name,
+                              const std::span<const glm::vec4> data) const {
+    const int loc = get_uniform_location(name);
+
+    glUniform4fv(loc, data.size(), glm::value_ptr(data.front()));
 }
 
 void

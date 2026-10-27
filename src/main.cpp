@@ -1,5 +1,7 @@
 #include <print>
 #include <cstddef>
+#include <algorithm>
+#include <optional>
 
 #include <SDL3/SDL.h>
 #include <glad/glad.h>
@@ -14,12 +16,79 @@
 #include "terrain.hpp"
 #include "ui.hpp"
 
+constexpr unsigned int k_terrain_resolution {512};
+constexpr float k_terrain_size {100.0f};
+
+using ShaderPair = std::pair<opengl::Shader, opengl::Shader>;
+
 std::uint32_t random_seed() {
     static std::mt19937 rng{std::random_device{}()};
     return rng();
 }
 
+std::vector<glm::vec4> get_gpu_coloring_data(std::vector<Layer>& layers) {
+    std::vector<glm::vec4> result;
+    result.reserve(layers.size());
+
+    for (const Layer& layer : layers) {
+        result.emplace_back(layer.color, layer.high_limit);
+    }
+
+    std::ranges::sort(result, [](const glm::vec4& a, const glm::vec4& b)
+    {
+        return a.w < b.w;
+    });
+
+    return result;
+}
+
+std::optional<ShaderPair>
+compile_shader_pair(const std::filesystem::path& vs_path,
+                    const std::filesystem::path& fs_path) {
+
+    auto vs =
+        opengl::Shader::compile_file(opengl::ShaderType::Vertex, vs_path);
+
+    auto fs =
+        opengl::Shader::compile_file(opengl::ShaderType::Fragment, fs_path);
+
+    if (!vs) {
+        std::println("Vertex shader error: {}.", vs.error());
+        return {};
+    }
+
+    if (!fs) {
+        std::println("Fragment shader error: {}.", fs.error());
+        return {};
+    }
+
+    return std::make_pair(std::move(vs.value()), std::move(fs.value()));
+}
+
+std::optional<opengl::ShaderProgram>
+compile_shader_program(const std::filesystem::path& vs_path,
+                       const std::filesystem::path& fs_path) {
+
+    auto shaders = compile_shader_pair(vs_path, fs_path);
+
+    if (!shaders) {
+        return {};
+    }
+
+    auto shader_program =
+        opengl::ShaderProgram::link(shaders.value().first,
+                                    shaders.value().second);
+
+    if (!shader_program) {
+        std::println("ShaderProgram error: {}.", shader_program.error());
+        return {};
+    }
+
+    return std::move(shader_program.value());
+}
+
 int main() {
+    // app initialization
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         return 1;
     }
@@ -62,6 +131,14 @@ int main() {
         return 1;
     }
 
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // after app init printing
     const char* version =
         reinterpret_cast<const char*>(glGetString(GL_VERSION));
     const char* renderer =
@@ -76,42 +153,17 @@ int main() {
     std::println("OpenGL vendor: {}",
                  (vendor != nullptr ? vendor : "unknown"));
 
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-
+    // ui
     UI& ui = UI::instance(window, gl_context, main_scale);
 
-    const std::filesystem::path vertex_shad_location =
-        "./shaders/vertex.glsl";
+    // variables initialization
+    auto terrain_program = compile_shader_program("./shaders/terrain_v.glsl",
+                                                  "./shaders/terrain_f.glsl");
 
-    const std::filesystem::path fragment_shad_location =
-        "./shaders/fragment.glsl";
+    auto water_program = compile_shader_program("./shaders/water_v.glsl",
+                                                "./shaders/water_f.glsl");
 
-    auto vertex_shad =
-        opengl::Shader::compile_file(opengl::ShaderType::Vertex,
-                                     vertex_shad_location);
-
-    if (!vertex_shad) {
-        std::println("Vertex shader error: {}.", vertex_shad.error());
-        return -1;
-    }
-
-    auto fragment_shad =
-        opengl::Shader::compile_file(opengl::ShaderType::Fragment,
-                                     fragment_shad_location);
-
-    if (!fragment_shad) {
-        std::println("Fragment shader error: {}.", fragment_shad.error());
-        return -1;
-    }
-
-    auto shader_program = opengl::ShaderProgram::link(vertex_shad.value(),
-                                                      fragment_shad.value());
-
-    if (!shader_program) {
-        std::println("ShaderProgram error: {}.", shader_program.error());
+    if (!terrain_program || !water_program) {
         return -1;
     }
 
@@ -124,8 +176,10 @@ int main() {
         .perlin_persistance {0.3f},
         .perlin_octaves {9},
 
+        .water_height {2.0f},
         .generate_terrain {false},
-        .generate_seed {false}
+        .generate_seed {false},
+        .apply_coloring {false}
     };
 
     Terrain terrain = Terrain::generate(
@@ -138,8 +192,8 @@ int main() {
         },
 
         TerrainConfig{
-            .resolution {512},
-            .terrain_size {100.0f},
+            .resolution {k_terrain_resolution},
+            .terrain_size {k_terrain_size},
             .height_scale {app_context.terrain_max_height}
         },
 
@@ -149,6 +203,33 @@ int main() {
             .octaves {app_context.perlin_octaves}
         }
     );
+
+    std::array water_quad {
+        VertexData {{-50.0f, 0.0f, -50.0f}, {0.0f, 1.0f, 0.0f}},
+        VertexData {{-50.0f, 0.0f,  50.0f}, {0.0f, 1.0f, 0.0f}},
+        VertexData {{ 50.0f, 0.0f, -50.0f}, {0.0f, 1.0f, 0.0f}},
+        VertexData {{ 50.0f, 0.0f,  50.0f}, {0.0f, 1.0f, 0.0f}}
+    };
+
+    std::array<unsigned int, 6> water_indices {
+        0, 1, 2,
+        2, 1, 3
+    };
+
+    opengl::VertexArray water {
+        opengl::Buffer<VertexData> {
+            opengl::BufferType::Vertex,
+            std::span<VertexData, 4>(water_quad)
+        },
+        opengl::Buffer<unsigned int> {
+            opengl::BufferType::Element,
+            std::span<unsigned int, 6>(water_indices)
+        }
+    };
+
+    water.add_attribute(3, GL_FLOAT, opengl::NormalizationType::Normalized, 0);
+    water.add_attribute(3, GL_FLOAT, opengl::NormalizationType::Normalized,
+                       offsetof(VertexData, normal));
 
     Camera cam{glm::vec3(95.0f, 90.0f, -50.0f)};
     cam.set_look_direction(glm::vec3{-0.6110979, -0.7205517, 0.3276654});
@@ -173,8 +254,17 @@ int main() {
     glm::mat4 rotation;
     glm::mat3 normal_mat;
 
+    std::vector<glm::vec4> gpu_coloring_layers;
+    int gpu_coloring_layers_count {0};
+
+    // WATER
+    glm::mat4 water_model = glm::mat4{1.0f};
+    glm::mat4 water_rotation;
+    glm::mat3 water_normal_mat;
+
     SDL_Event event;
 
+    // main loop
     while (running) {
         while (SDL_PollEvent(&event)) {
             ui.process_events(&event);
@@ -233,31 +323,71 @@ int main() {
             app_context.generate_terrain = false;
         }
 
+        if (app_context.apply_coloring) {
+            gpu_coloring_layers = get_gpu_coloring_data(app_context.layers);
+            gpu_coloring_layers_count = gpu_coloring_layers.size();
+        }
+
         rotation = glm::rotate(glm::mat4{1.0f}, glm::radians(board_rotation),
                                glm::vec3{0.0f, 1.0f, 0.0f});
         model = glm::translate(glm::mat4{1.0f}, cube_pos) * rotation;
         normal_mat = glm::transpose(glm::inverse(glm::mat3(model)));
 
+        water_rotation = glm::rotate(glm::mat4{1.0f},
+                                     glm::radians(board_rotation),
+                                     glm::vec3{0.0f, 1.0f, 0.0f});
+        water_model =
+            glm::translate(glm::mat4{1.0f},
+                           glm::vec3{0.0f, app_context.water_height, 0.0f})
+            * water_rotation;
+
+        water_normal_mat = glm::transpose(glm::inverse(glm::mat3(water_model)));
+
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        shader_program->use();
-        shader_program->set_mat4("model", model);
-        shader_program->set_mat4("view", cam.get_view_mat());
-        shader_program->set_mat4("projection", projection);
-        shader_program->set_mat3("normal_mat", normal_mat);
+        // terrain rendering
+        terrain_program->use();
+        terrain_program->set_mat4("model", model);
+        terrain_program->set_mat4("view", cam.get_view_mat());
+        terrain_program->set_mat4("projection", projection);
+        terrain_program->set_mat3("normal_mat", normal_mat);
 
-        shader_program->set_vec3("ambient", ambient);
-        shader_program->set_vec3("light_dir", light_dir);
-        shader_program->set_vec3("light_col", glm::vec3(1.0f, 1.0f, 1.0f));
-        // shader_program->set_vec3("object_col", glm::vec3(0.5f, 0.8f, 0.3f));
+        terrain_program->set_vec3("ambient", ambient);
+        terrain_program->set_vec3("light_dir", light_dir);
+        terrain_program->set_vec3("light_col", glm::vec3(1.0f, 1.0f, 1.0f));
+        terrain_program->set_float("water_height", app_context.water_height);
 
+        if (app_context.apply_coloring) {
+            terrain_program->set_vec4_array("coloring_layers",
+                                           gpu_coloring_layers);
+            terrain_program->set_int("coloring_layers_count",
+                                    gpu_coloring_layers_count);
+
+            app_context.apply_coloring = false;
+        }
+
+        terrain_program->use();
         terrain.bind_mesh();
-
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glDrawElements(GL_TRIANGLES, terrain.indices_count(), GL_UNSIGNED_INT, 0);
-
         terrain.unbind_mesh();
+
+        // water rendering
+        water_program->use();
+        water_program->set_mat4("model", water_model);
+        water_program->set_mat4("view", cam.get_view_mat());
+        water_program->set_mat4("projection", projection);
+        water_program->set_mat3("normal_mat", water_normal_mat);
+
+        water_program->set_vec3("ambient", ambient);
+        water_program->set_vec3("light_dir", light_dir);
+        water_program->set_vec3("light_col", glm::vec3(1.0f, 1.0f, 1.0f));
+
+        water.bind();
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        water.unbind();
 
         ui.render_drawn_data();
         SDL_GL_SwapWindow(window);

@@ -85,6 +85,7 @@ template<typename vbo_t, typename ebo_t>
 void
 VertexArray<vbo_t, ebo_t>::bind() const {
     glBindVertexArray(m_id);
+    m_ebo.bind();
 }
 
 template<typename vbo_t, typename ebo_t>
